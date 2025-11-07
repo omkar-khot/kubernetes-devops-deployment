@@ -1,8 +1,9 @@
-# Multi-Environment Kubernetes Deployment
+# Multi-Environment Kubernetes Deployment with Helm
 
 ## Overview
 
 This repository now supports **three separate Kubernetes environments**:
+
 - **Development** - For developers testing new features
 - **Staging** - Pre-production testing environment
 - **Production** - Live production environment
@@ -13,60 +14,46 @@ The repository is organized by environment:
 
 ```
 kubernetes-devops-deployment/
-├── README.md                              # Main README
-├── ENVIRONMENTS.md                        # This file
+├── README.md                          # Main README
+├── ENVIRONMENTS.md                    # This file
+├── helm/
+│   └── devops-app/
+│       ├── Chart.yaml                 # Helm chart metadata
+│       ├── values.yaml                # Default values
+│       ├── values-dev.yaml            # Dev environment values
+│       ├── values-staging.yaml        # Staging environment values
+│       ├── values-prod.yaml           # Production environment values
+│       └── templates/
+│           ├── deployment.yaml
+│           ├── service.yaml
+│           ├── ingress.yaml
+│           ├── hpa.yaml
+│           ├── configmap.yaml
+│           ├── secret.yaml
+│           └── _helpers.tpl
 ├── environments/
-│   ├── development/
-│   │   ├── 01-namespaces/
-│   │   ├── 02-secrets/
-│   │   ├── 03-configmaps/
-│   │   ├── 04-postgres/
-│   │   ├── 05-rabbitmq/
-│   │   ├── 06-springboot/
-│   │   ├── 07-nodejs/
-│   │   ├── 08-prometheus/
-│   │   ├── 09-node-exporter/
-│   │   ├── 10-grafana/
-│   │   └── kustomization.yaml
-│   │
+│   ├── dev/
+│   │   └── README.md
 │   ├── staging/
-│   │   ├── 01-namespaces/
-│   │   ├── 02-secrets/
-│   │   ├── 03-configmaps/
-│   │   ├── 04-postgres/
-│   │   ├── 05-rabbitmq/
-│   │   ├── 06-springboot/
-│   │   ├── 07-nodejs/
-│   │   ├── 08-prometheus/
-│   │   ├── 09-node-exporter/
-│   │   ├── 10-grafana/
-│   │   └── kustomization.yaml
-│   │
-│   └── production/
-│       ├── 01-namespaces/
-│       ├── 02-secrets/
-│       ├── 03-configmaps/
-│       ├── 04-postgres/
-│       ├── 05-rabbitmq/
-│       ├── 06-springboot/
-│       ├── 07-nodejs/
-│       ├── 08-prometheus/
-│       ├── 09-node-exporter/
-│       ├── 10-grafana/
-│       └── kustomization.yaml
-│
-└── base/                                  # Shared base manifests
-    ├── 01-namespaces/
-    ├── 02-secrets/
-    ├── 03-configmaps/
-    ├── 04-postgres/
-    ├── 05-rabbitmq/
-    ├── 06-springboot/
-    ├── 07-nodejs/
-    ├── 08-prometheus/
-    ├── 09-node-exporter/
-    ├── 10-grafana/
-    └── kustomization.yaml
+│   │   └── README.md
+│   └── prod/
+│       └── README.md
+├── base/
+│   ├── 01-namespaces/
+│   ├── 02-secrets/
+│   ├── 03-configmaps/
+│   ├── 04-postgres/
+│   ├── 05-rabbitmq/
+│   ├── 06-springboot/
+│   ├── 07-nodejs/
+│   ├── 08-prometheus/
+│   ├── 09-node-exporter/
+│   └── 10-grafana/
+└── terraform/
+    └── environments/
+        ├── dev/
+        ├── staging/
+        └── prod/
 ```
 
 ## Environment Specifications
@@ -76,6 +63,7 @@ kubernetes-devops-deployment/
 **Purpose**: Local development and testing
 
 **Characteristics**:
+
 - **Namespace**: `dev`
 - **Replicas**: 1 (minimal resources)
 - **Storage**: 5Gi (reduced from production)
@@ -85,8 +73,9 @@ kubernetes-devops-deployment/
 - **Database**: Single instance, no replication
 
 **Typical Usage**:
+
 ```bash
-kubectl apply -k environments/development/
+helm install devops-app ./helm/devops-app -n dev -f helm/devops-app/values-dev.yaml
 ```
 
 ### Staging Environment
@@ -94,6 +83,7 @@ kubectl apply -k environments/development/
 **Purpose**: Pre-production testing and validation
 
 **Characteristics**:
+
 - **Namespace**: `staging`
 - **Replicas**: 2 (medium resources)
 - **Storage**: 20Gi
@@ -104,8 +94,9 @@ kubectl apply -k environments/development/
 - **Network Policies**: Basic security rules
 
 **Typical Usage**:
+
 ```bash
-kubectl apply -k environments/staging/
+helm install devops-app ./helm/devops-app -n staging -f helm/devops-app/values-staging.yaml
 ```
 
 ### Production Environment
@@ -113,6 +104,7 @@ kubectl apply -k environments/staging/
 **Purpose**: Live production workloads
 
 **Characteristics**:
+
 - **Namespace**: `production`
 - **Replicas**: 3 (high availability)
 - **Storage**: 50Gi (large for production data)
@@ -124,8 +116,9 @@ kubectl apply -k environments/staging/
 - **Pod Disruption Budgets**: Enabled for high availability
 
 **Typical Usage**:
+
 ```bash
-kubectl apply -k environments/production/
+helm install devops-app ./helm/devops-app -n production -f helm/devops-app/values-prod.yaml
 ```
 
 ## Key Differences Between Environments
@@ -144,38 +137,49 @@ kubectl apply -k environments/production/
 | **SLA** | None | 99% | 99.9% |
 | **Auto-scaling** | Disabled | Disabled | Enabled |
 
-## Configuration Management with Kustomize
+## Configuration Management with Helm
 
-Each environment uses Kustomize for managing different configurations:
+Each environment uses Helm for managing different configurations.
 
 ### Base Configuration
-Common manifests shared across all environments are in the `base/` directory.
 
-### Environment Overlays
-Environment-specific customizations use Kustomize overlays:
+Common values shared across all environments are in `helm/devops-app/values.yaml`.
+
+### Environment Overrides
+
+Environment-specific customizations use Helm values files (values-dev.yaml, values-staging.yaml, values-prod.yaml).
+
+**Example: helm/devops-app/values-dev.yaml**
 
 ```yaml
-# environments/development/kustomization.yaml
-namespaces:
-- dev
+replicaCount: 1
 
-bases:
-- ../../base
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
 
-patchesStrategicMerge:
-- patches/namespace.yaml
-- patches/replicas.yaml
-- patches/resources.yaml
+postgresql:
+  enabled: true
+  persistence:
+    size: 5Gi
 
-replicas:
-- name: springboot-backend
-  count: 1
-- name: nodejs-frontend
-  count: 1
+springboot:
+  replicaCount: 1
+  
+nodejs:
+  replicaCount: 1
 
-commonLabels:
+prometheus:
+  enabled: true
+  retention: 7d
+
+labels:
   environment: development
-  managed-by: kustomize
+  managed-by: helm
 ```
 
 ## Deployment Workflow
@@ -183,138 +187,134 @@ commonLabels:
 ### Deploying to Development
 
 ```bash
-# Navigate to development environment
-cd environments/development
-
 # Review what will be deployed
-kubectl kustomize . | less
+helm template devops-app ./helm/devops-app -n dev -f helm/devops-app/values-dev.yaml | less
 
 # Deploy
-kubectl apply -k .
+helm install devops-app ./helm/devops-app -n dev -f helm/devops-app/values-dev.yaml
 
 # Verify deployment
 kubectl get all -n dev
+helm status devops-app -n dev
 ```
 
 ### Deploying to Staging
 
 ```bash
-# Test the staging manifests
-kubectl apply -k environments/staging/ --dry-run=client
+# Test the staging manifests with dry-run
+helm upgrade --install devops-app ./helm/devops-app -n staging -f helm/devops-app/values-staging.yaml --dry-run
 
 # Deploy to staging
-kubectl apply -k environments/staging/
+helm upgrade --install devops-app ./helm/devops-app -n staging -f helm/devops-app/values-staging.yaml
 
 # Verify
 kubectl get all -n staging
+helm status devops-app -n staging
 ```
 
 ### Deploying to Production
 
 ```bash
 # Carefully review production manifests
-kubectl kustomize environments/production/ | less
+helm template devops-app ./helm/devops-app -n production -f helm/devops-app/values-prod.yaml | less
 
 # Dry-run to ensure no issues
-kubectl apply -k environments/production/ --dry-run=client -o yaml | less
+helm upgrade --install devops-app ./helm/devops-app -n production -f helm/devops-app/values-prod.yaml --dry-run
 
 # Deploy with approval process
-kubectl apply -k environments/production/
+helm upgrade --install devops-app ./helm/devops-app -n production -f helm/devops-app/values-prod.yaml
 
 # Monitor deployment
 kubectl rollout status deployment/springboot-backend -n production
 kubectl rollout status deployment/nodejs-frontend -n production
+helm status devops-app -n production
 ```
 
 ## Secret Management by Environment
 
 ### Development
+
+Use test credentials:
+
 ```bash
-# Use test credentials
-echo -n 'dev_user' | base64
-echo -n 'dev_password' | base64
+helm install devops-app ./helm/devops-app -n dev \
+  -f helm/devops-app/values-dev.yaml \
+  --set secrets.postgresql.password=dev_password
 ```
 
 ### Staging
+
+Use staging credentials from vault:
+
 ```bash
-# Use staging credentials from secrets manager
-# Example: HashiCorp Vault, AWS Secrets Manager
+# Example: HashiCorp Vault
+vault kv get secret/staging/springboot
+
+# Install with Vault-managed secrets
+helm install devops-app ./helm/devops-app -n staging \
+  -f helm/devops-app/values-staging.yaml
 ```
 
 ### Production
+
+Use production credentials from secure vault:
+
 ```bash
-# Use production credentials from secure vault
 # NEVER hardcode production secrets
 # Use: HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, Sealed Secrets
+
+helm install devops-app ./helm/devops-app -n production \
+  -f helm/devops-app/values-prod.yaml
 ```
 
 ## Monitoring and Logging by Environment
 
 ### Development
+
 - Basic Prometheus scraping
 - Simple Grafana dashboards
 - Logs retained for 7 days
 
 ### Staging
+
 - Full Prometheus monitoring
 - Pre-production dashboards
 - Logs retained for 30 days
 - Alert rules testing
 
 ### Production
+
 - Comprehensive Prometheus setup
 - Production-grade Grafana dashboards
 - Logs retained for 90 days
 - Active alerting enabled
 - Integration with PagerDuty/Slack
-
-## GitOps Workflow (Optional)
-
-For automated deployments using ArgoCD:
-
-```yaml
-# applications/dev-app.yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: devops-deployment-dev
-  namespace: argocd
-spec:
-  project: default
-  source:
-    repoURL: https://github.com/omkar-khot/kubernetes-devops-deployment
-    targetRevision: main
-    path: environments/development
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: dev
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-```
+- Dynatrace APM enabled
 
 ## Scaling Considerations
 
 ### Development
+
 - Manual scaling only
 - Single node cluster acceptable
 - Resource sharing encouraged
 
 ### Staging
+
 - Manual scaling with testing
 - Multi-node cluster recommended
 - Can simulate production load
 
 ### Production
-- Horizontal Pod Autoscaling (HPA) enabled
+
+- Horizontal Pod Autoscaling (HPA) enabled (2-10 replicas)
 - Vertical Pod Autoscaling (VPA) for right-sizing
 - Multi-zone/multi-cluster setup for disaster recovery
 
 ## Cost Optimization by Environment
 
 | Environment | Estimated Monthly Cost | Optimization |
-|-------------|----------------------|---------------|
+|---|---|---|
 | Development | $50-100 | Shared resources, spot instances |
 | Staging | $200-300 | Reserved instances, cost limits |
 | Production | $500-1000+ | RI, spot for batch jobs, CDN |
@@ -322,19 +322,66 @@ spec:
 ## Backup and Disaster Recovery
 
 ### Development
+
 - No backup required
 - Data loss acceptable
 
 ### Staging
+
 - Daily backups
 - 7-day retention
 - RTO: 4 hours, RPO: 1 day
 
 ### Production
+
 - Hourly backups
 - 30-day retention (or compliance requirement)
 - RTO: 15 minutes, RPO: 1 hour
 - Multi-region failover setup
+
+## Helm Commands Reference
+
+### Installation
+
+```bash
+# Install fresh release
+helm install devops-app ./helm/devops-app -n <env> -f helm/devops-app/values-<env>.yaml
+
+# Upgrade existing release
+helm upgrade --install devops-app ./helm/devops-app -n <env> -f helm/devops-app/values-<env>.yaml
+```
+
+### Management
+
+```bash
+# List releases
+helm list -n <env>
+
+# Get release status
+helm status devops-app -n <env>
+
+# Get release values
+helm get values devops-app -n <env>
+
+# Get release history
+helm history devops-app -n <env>
+
+# Rollback to previous version
+helm rollback devops-app <revision> -n <env>
+```
+
+### Debugging
+
+```bash
+# Template rendering (dry-run)
+helm template devops-app ./helm/devops-app -n <env> -f helm/devops-app/values-<env>.yaml
+
+# Render with Helm upgrade (another dry-run)
+helm upgrade --install devops-app ./helm/devops-app -n <env> -f helm/devops-app/values-<env>.yaml --dry-run
+
+# Debug template rendering
+helm template devops-app ./helm/devops-app -n <env> -f helm/devops-app/values-<env>.yaml --debug
+```
 
 ## Best Practices
 
@@ -342,10 +389,12 @@ spec:
 2. ✅ **Use separate Kubernetes clusters** - Each environment on different cluster
 3. ✅ **Manage secrets securely** - Use vault solutions, never hardcode
 4. ✅ **Version control everything** - GitOps approach for traceability
-5. ✅ **Environment-specific values** - Use Kustomize or Helm for overrides
+5. ✅ **Environment-specific values** - Use Helm values files for overrides
 6. ✅ **Monitoring from day one** - Track metrics in all environments
 7. ✅ **Backup policies** - Automated backups with testing
 8. ✅ **Documentation** - Keep environment specs documented
+9. ✅ **Chart versioning** - Use semantic versioning for Helm charts
+10. ✅ **Use Helm hooks** - For pre/post deployment tasks
 
 ## Support and Troubleshooting
 
@@ -360,14 +409,14 @@ kubectl get all -n dev
 kubectl get all -n staging
 kubectl get all -n production
 
-# Check environment configurations
-kubectl get cm -n dev
-kubectl get secrets -n dev
-
 # View environment-specific logs
 kubectl logs -f deployment/springboot-backend -n dev
 kubectl logs -f deployment/springboot-backend -n staging
 kubectl logs -f deployment/springboot-backend -n production
+
+# Get Helm release info
+helm status devops-app -n dev
+helm values devops-app -n dev
 ```
 
 ## Contact
